@@ -1,0 +1,101 @@
+﻿  Preprocessing: kernels.cl
+  Setting target instruction set architecture to: Default (Advanced Vector Extension 2 (AVX2))
+  OpenCL Intel CPU device was found!
+  Device name: Intel(R) Core(TM) i3-5010U CPU @ 2.10GHz
+  Device version: OpenCL 2.0 (Build 10094)
+  Device vendor: Intel(R) Corporation
+  Device profile: FULL_PROFILE
+  Compilation started
+  Compilation done
+  Linking started
+  Linking done
+  Device build started
+  Device build done
+  Kernel <accelerate_flow> was not vectorized
+  Kernel <propagate> was not vectorized
+  Done.
+  accelerate_flow info:
+  	Maximum work-group size: 8192
+  	Compiler work-group size: (0, 0, 0)
+  	Local memory size: 0
+  	Preferred multiple of work-group size: 128
+  	Minimum amount of private memory: 0
+  
+  propagate info:
+  	Maximum work-group size: 8192
+  	Compiler work-group size: (0, 0, 0)
+  	Local memory size: 0
+  	Preferred multiple of work-group size: 128
+  	Minimum amount of private memory: 0
+  
+  Build succeeded!
+  
+  d2q9-bgk.c
+..\..\..\linux\d2q9-bgk.c(168): warning C4101: 'systim': unreferenced local variable
+..\..\..\linux\d2q9-bgk.c(167): warning C4101: 'usrtim': unreferenced local variable
+..\..\..\linux\d2q9-bgk.c(166): warning C4101: 'tic': unreferenced local variable
+..\..\..\linux\d2q9-bgk.c(166): warning C4101: 'toc': unreferenced local variable
+..\..\..\linux\d2q9-bgk.c(408): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(412): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(415): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(418): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(421): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(425): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(428): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(431): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(434): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(349): warning C4305: 'initializing': truncation from 'double' to 'const float'
+..\..\..\linux\d2q9-bgk.c(350): warning C4305: 'initializing': truncation from 'double' to 'const float'
+..\..\..\linux\d2q9-bgk.c(351): warning C4305: 'initializing': truncation from 'double' to 'const float'
+..\..\..\linux\d2q9-bgk.c(352): warning C4305: 'initializing': truncation from 'double' to 'const float'
+..\..\..\linux\d2q9-bgk.c(491): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(514): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(205): note: see declaration of 'fopen'
+..\..\..\linux\d2q9-bgk.c(518): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(1769): note: see declaration of 'sprintf'
+..\..\..\linux\d2q9-bgk.c(523): warning C4996: 'fscanf': This function or variable may be unsafe. Consider using fscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(1193): note: see declaration of 'fscanf'
+..\..\..\linux\d2q9-bgk.c(527): warning C4996: 'fscanf': This function or variable may be unsafe. Consider using fscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(1193): note: see declaration of 'fscanf'
+..\..\..\linux\d2q9-bgk.c(531): warning C4996: 'fscanf': This function or variable may be unsafe. Consider using fscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(1193): note: see declaration of 'fscanf'
+..\..\..\linux\d2q9-bgk.c(535): warning C4996: 'fscanf': This function or variable may be unsafe. Consider using fscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(1193): note: see declaration of 'fscanf'
+..\..\..\linux\d2q9-bgk.c(539): warning C4477: 'fscanf' : format string '%lf' requires an argument of type 'double *', but variadic argument 1 has type 'float *'
+  ..\..\..\linux\d2q9-bgk.c(539): note: consider using '%f' in the format string
+..\..\..\linux\d2q9-bgk.c(539): warning C4996: 'fscanf': This function or variable may be unsafe. Consider using fscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(1193): note: see declaration of 'fscanf'
+..\..\..\linux\d2q9-bgk.c(543): warning C4477: 'fscanf' : format string '%lf' requires an argument of type 'double *', but variadic argument 1 has type 'float *'
+  ..\..\..\linux\d2q9-bgk.c(543): note: consider using '%f' in the format string
+..\..\..\linux\d2q9-bgk.c(543): warning C4996: 'fscanf': This function or variable may be unsafe. Consider using fscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(1193): note: see declaration of 'fscanf'
+..\..\..\linux\d2q9-bgk.c(547): warning C4477: 'fscanf' : format string '%lf' requires an argument of type 'double *', but variadic argument 1 has type 'float *'
+  ..\..\..\linux\d2q9-bgk.c(547): note: consider using '%f' in the format string
+..\..\..\linux\d2q9-bgk.c(547): warning C4996: 'fscanf': This function or variable may be unsafe. Consider using fscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(1193): note: see declaration of 'fscanf'
+..\..\..\linux\d2q9-bgk.c(589): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(590): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(591): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(622): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(205): note: see declaration of 'fopen'
+..\..\..\linux\d2q9-bgk.c(626): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(1769): note: see declaration of 'sprintf'
+..\..\..\linux\d2q9-bgk.c(631): warning C4996: 'fscanf': This function or variable may be unsafe. Consider using fscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(1193): note: see declaration of 'fscanf'
+..\..\..\linux\d2q9-bgk.c(664): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(205): note: see declaration of 'fopen'
+..\..\..\linux\d2q9-bgk.c(667): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(1769): note: see declaration of 'sprintf'
+..\..\..\linux\d2q9-bgk.c(672): warning C4996: 'clCreateCommandQueue': was declared deprecated
+  C:\Program Files (x86)\Intel\OpenCL SDK\6.3\include\CL/cl.h(1428): note: see declaration of 'clCreateCommandQueue'
+..\..\..\linux\d2q9-bgk.c(763): warning C4244: 'initializing': conversion from 'double' to 'const float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(840): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+..\..\..\linux\d2q9-bgk.c(789): warning C4305: 'initializing': truncation from 'double' to 'const float'
+..\..\..\linux\d2q9-bgk.c(796): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(205): note: see declaration of 'fopen'
+..\..\..\linux\d2q9-bgk.c(852): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdio.h(205): note: see declaration of 'fopen'
+..\..\..\linux\d2q9-bgk.c(932): warning C4996: 'getenv': This function or variable may be unsafe. Consider using _dupenv_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.10240.0\ucrt\stdlib.h(1183): note: see declaration of 'getenv'
+  lbm_opencl.vcxproj -> C:\Users\gavin\workspace\lbm_opencl\windows\lbm_opencl\..\..\linux\lbm_opencl.exe
+  lbm_opencl.vcxproj -> C:\Users\gavin\workspace\lbm_opencl\windows\lbm_opencl\..\..\linux\lbm_opencl.pdb (Full PDB)
