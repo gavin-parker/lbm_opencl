@@ -57,6 +57,8 @@
 #ifdef __unix__
 #include<sys/time.h>
 /#include<sys/resource.h>
+#else
+#include <time.h>
 #endif
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -75,9 +77,9 @@ typedef struct
   int    ny;            /* no. of cells in y-direction */
   int    maxIters;      /* no. of iterations */
   int    reynolds_dim;  /* dimension for Reynolds number */
-  float density;       /* density per link */
-  float accel;         /* density redistribution */
-  float omega;         /* relaxation parameter */
+  double density;       /* density per link */
+  double accel;         /* density redistribution */
+  double omega;         /* relaxation parameter */
 } t_param;
 
 /* struct to hold OpenCL objects */
@@ -90,6 +92,8 @@ typedef struct
   cl_program program;
   cl_kernel  accelerate_flow;
   cl_kernel  propagate;
+  cl_kernel  collision;
+  cl_kernel  rebound;
 
   cl_mem cells;
   cl_mem tmp_cells;
@@ -182,9 +186,11 @@ int main(int argc, char* argv[])
   initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &obstacles, &av_vels, &ocl);
 
   /* iterate for maxIters timesteps */
-#ifdef LINUX
+#ifdef __unix__
   gettimeofday(&timstr, NULL);
   tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
+#else
+  clock_t start = clock();
 #endif
 
   // Write cells to OpenCL buffer
@@ -203,11 +209,11 @@ int main(int argc, char* argv[])
   {
     timestep(params, cells, tmp_cells, obstacles, ocl);
     av_vels[tt] = av_velocity(params, cells, obstacles, ocl);
-#ifdef DEBUG
+//#ifdef DEBUG
     printf("==timestep: %d==\n", tt);
     printf("av velocity: %.12E\n", av_vels[tt]);
     printf("tot density: %.12E\n", total_density(params, cells));
-#endif
+//#endif
   }
 
 #ifdef  __unix__
@@ -218,6 +224,9 @@ int main(int argc, char* argv[])
   usrtim = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   timstr = ru.ru_stime;
   systim = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
+#else
+  clock_t end = clock();
+  float time = (float)(end - start) / CLOCKS_PER_SEC;
 #endif
   /* write final values and free memory */
   printf("==done==\n");
@@ -226,6 +235,9 @@ int main(int argc, char* argv[])
   printf("Elapsed time:\t\t\t%.6lf (s)\n", toc - tic);
   printf("Elapsed user CPU time:\t\t%.6lf (s)\n", usrtim);
   printf("Elapsed system CPU time:\t%.6lf (s)\n", systim);
+#else
+  printf("Elapsed time:\t\t\t%.6f (s)\n", time);
+
 #endif
   write_values(params, cells, obstacles, av_vels);
   finalise(&params, &cells, &tmp_cells, &obstacles, &av_vels, ocl);
@@ -245,15 +257,15 @@ int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obst
 
   accelerate_flow(params, cells, obstacles, ocl);
   propagate(params, cells, tmp_cells, ocl);
-
-  // Read tmp_cells from device
-  err = clEnqueueReadBuffer(
-    ocl.queue, ocl.tmp_cells, CL_TRUE, 0,
-    sizeof(t_speed) * params.nx * params.ny, tmp_cells, 0, NULL, NULL);
-  checkError(err, "reading tmp_cells data", __LINE__);
-
   rebound(params, cells, tmp_cells, obstacles, ocl);
   collision(params, cells, tmp_cells, obstacles, ocl);
+  // Read tmp_cells from device
+  err = clEnqueueReadBuffer(
+    ocl.queue, ocl.cells, CL_TRUE, 0,
+    sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
+  checkError(err, "reading tmp_cells data", __LINE__);
+
+
   return EXIT_SUCCESS;
 }
 
@@ -270,9 +282,9 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles, t_ocl 
   checkError(err, "setting accelerate_flow arg 2", __LINE__);
   err = clSetKernelArg(ocl.accelerate_flow, 3, sizeof(cl_int), &params.ny);
   checkError(err, "setting accelerate_flow arg 3", __LINE__);
-  err = clSetKernelArg(ocl.accelerate_flow, 4, sizeof(cl_float), &params.density);
+  err = clSetKernelArg(ocl.accelerate_flow, 4, sizeof(cl_double), &params.density);
   checkError(err, "setting accelerate_flow arg 4", __LINE__);
-  err = clSetKernelArg(ocl.accelerate_flow, 5, sizeof(cl_float), &params.accel);
+  err = clSetKernelArg(ocl.accelerate_flow, 5, sizeof(cl_double), &params.accel);
   checkError(err, "setting accelerate_flow arg 5", __LINE__);
 
   // Enqueue kernel
@@ -319,130 +331,57 @@ int propagate(const t_param params, t_speed* cells, t_speed* tmp_cells, t_ocl oc
 
 int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl)
 {
-  /* loop over the cells in the grid */
-  for (int ii = 0; ii < params.ny; ii++)
-  {
-    for (int jj = 0; jj < params.nx; jj++)
-    {
-      /* if the cell contains an obstacle */
-      if (obstacles[ii * params.nx + jj])
-      {
-        /* called after propagate, so taking values from scratch space
-        ** mirroring, and writing into main grid */
-        cells[ii * params.nx + jj].speeds[1] = tmp_cells[ii * params.nx + jj].speeds[3];
-        cells[ii * params.nx + jj].speeds[2] = tmp_cells[ii * params.nx + jj].speeds[4];
-        cells[ii * params.nx + jj].speeds[3] = tmp_cells[ii * params.nx + jj].speeds[1];
-        cells[ii * params.nx + jj].speeds[4] = tmp_cells[ii * params.nx + jj].speeds[2];
-        cells[ii * params.nx + jj].speeds[5] = tmp_cells[ii * params.nx + jj].speeds[7];
-        cells[ii * params.nx + jj].speeds[6] = tmp_cells[ii * params.nx + jj].speeds[8];
-        cells[ii * params.nx + jj].speeds[7] = tmp_cells[ii * params.nx + jj].speeds[5];
-        cells[ii * params.nx + jj].speeds[8] = tmp_cells[ii * params.nx + jj].speeds[6];
-      }
-    }
-  }
+	cl_int err;
+	// Set kernel arguments
+	err = clSetKernelArg(ocl.rebound, 0, sizeof(cl_mem), &ocl.cells);
+	checkError(err, "setting rebound arg 0", __LINE__);
+	err = clSetKernelArg(ocl.rebound, 1, sizeof(cl_mem), &ocl.tmp_cells);
+	checkError(err, "setting rebound arg 1", __LINE__);
+	err = clSetKernelArg(ocl.rebound, 2, sizeof(cl_mem), &ocl.obstacles);
+	checkError(err, "setting rebound arg 2", __LINE__);
+	err = clSetKernelArg(ocl.rebound, 3, sizeof(cl_int), &params.nx);
+	checkError(err, "setting rebound arg 3", __LINE__);
+
+	// Enqueue kernel
+	size_t global[2] = { params.nx, params.ny };
+	err = clEnqueueNDRangeKernel(ocl.queue, ocl.rebound,
+		2, NULL, global, NULL, 0, NULL, NULL);
+	checkError(err, "enqueueing rebound kernel", __LINE__);
+
+	// Wait for kernel to finish
+	err = clFinish(ocl.queue);
+	checkError(err, "waiting for rebound kernel", __LINE__);
 
   return EXIT_SUCCESS;
 }
 
 int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl)
 {
-  const float c_sq = 1.0 / 3.0; /* square of speed of sound */
-  const float w0 = 4.0 / 9.0;  /* weighting factor */
-  const float w1 = 1.0 / 9.0;  /* weighting factor */
-  const float w2 = 1.0 / 36.0; /* weighting factor */
+	cl_int err;
 
-  /* loop over the cells in the grid
-  ** NB the collision step is called after
-  ** the propagate step and so values of interest
-  ** are in the scratch-space grid */
-  for (int ii = 0; ii < params.ny; ii++)
-  {
-    for (int jj = 0; jj < params.nx; jj++)
-    {
-      /* don't consider occupied cells */
-      if (!obstacles[ii * params.nx + jj])
-      {
-        /* compute local density total */
-        float local_density = 0.0;
+	// Set kernel arguments
+	err = clSetKernelArg(ocl.collision, 0, sizeof(cl_mem), &ocl.cells);
+	checkError(err, "setting collision arg 0", __LINE__);
+	err = clSetKernelArg(ocl.collision, 1, sizeof(cl_mem), &ocl.tmp_cells);
+	checkError(err, "setting collision arg 1", __LINE__);
+	err = clSetKernelArg(ocl.collision, 2, sizeof(cl_mem), &ocl.obstacles);
+	checkError(err, "setting collision arg 2", __LINE__);
+	err = clSetKernelArg(ocl.collision, 3, sizeof(cl_int), &params.nx);
+	checkError(err, "setting collision arg 3", __LINE__);
+	err = clSetKernelArg(ocl.collision, 4, sizeof(cl_int), &params.ny);
+	checkError(err, "setting collision arg 4", __LINE__);
+	err = clSetKernelArg(ocl.collision, 5, sizeof(cl_double), &params.omega);
+	checkError(err, "setting collision arg 5", __LINE__);
 
-        for (int kk = 0; kk < NSPEEDS; kk++)
-        {
-          local_density += tmp_cells[ii * params.nx + jj].speeds[kk];
-        }
+	// Enqueue kernel
+	size_t global[2] = { params.nx, params.ny };
+	err = clEnqueueNDRangeKernel(ocl.queue, ocl.collision,
+		2, NULL, global, NULL, 0, NULL, NULL);
+	checkError(err, "enqueueing collision kernel", __LINE__);
 
-        /* compute x velocity component */
-        float u_x = (tmp_cells[ii * params.nx + jj].speeds[1]
-                      + tmp_cells[ii * params.nx + jj].speeds[5]
-                      + tmp_cells[ii * params.nx + jj].speeds[8]
-                      - (tmp_cells[ii * params.nx + jj].speeds[3]
-                         + tmp_cells[ii * params.nx + jj].speeds[6]
-                         + tmp_cells[ii * params.nx + jj].speeds[7]))
-                     / local_density;
-        /* compute y velocity component */
-        float u_y = (tmp_cells[ii * params.nx + jj].speeds[2]
-                      + tmp_cells[ii * params.nx + jj].speeds[5]
-                      + tmp_cells[ii * params.nx + jj].speeds[6]
-                      - (tmp_cells[ii * params.nx + jj].speeds[4]
-                         + tmp_cells[ii * params.nx + jj].speeds[7]
-                         + tmp_cells[ii * params.nx + jj].speeds[8]))
-                     / local_density;
-
-        /* velocity squared */
-        float u_sq = u_x * u_x + u_y * u_y;
-
-        /* directional velocity components */
-        float u[NSPEEDS];
-        u[1] =   u_x;        /* east */
-        u[2] =         u_y;  /* north */
-        u[3] = - u_x;        /* west */
-        u[4] =       - u_y;  /* south */
-        u[5] =   u_x + u_y;  /* north-east */
-        u[6] = - u_x + u_y;  /* north-west */
-        u[7] = - u_x - u_y;  /* south-west */
-        u[8] =   u_x - u_y;  /* south-east */
-
-        /* equilibrium densities */
-        float d_equ[NSPEEDS];
-        /* zero velocity density: weight w0 */
-        d_equ[0] = w0 * local_density
-                   * (1.0 - u_sq / (2.0 * c_sq));
-        /* axis speeds: weight w1 */
-        d_equ[1] = w1 * local_density * (1.0 + u[1] / c_sq
-                                         + (u[1] * u[1]) / (2.0 * c_sq * c_sq)
-                                         - u_sq / (2.0 * c_sq));
-        d_equ[2] = w1 * local_density * (1.0 + u[2] / c_sq
-                                         + (u[2] * u[2]) / (2.0 * c_sq * c_sq)
-                                         - u_sq / (2.0 * c_sq));
-        d_equ[3] = w1 * local_density * (1.0 + u[3] / c_sq
-                                         + (u[3] * u[3]) / (2.0 * c_sq * c_sq)
-                                         - u_sq / (2.0 * c_sq));
-        d_equ[4] = w1 * local_density * (1.0 + u[4] / c_sq
-                                         + (u[4] * u[4]) / (2.0 * c_sq * c_sq)
-                                         - u_sq / (2.0 * c_sq));
-        /* diagonal speeds: weight w2 */
-        d_equ[5] = w2 * local_density * (1.0 + u[5] / c_sq
-                                         + (u[5] * u[5]) / (2.0 * c_sq * c_sq)
-                                         - u_sq / (2.0 * c_sq));
-        d_equ[6] = w2 * local_density * (1.0 + u[6] / c_sq
-                                         + (u[6] * u[6]) / (2.0 * c_sq * c_sq)
-                                         - u_sq / (2.0 * c_sq));
-        d_equ[7] = w2 * local_density * (1.0 + u[7] / c_sq
-                                         + (u[7] * u[7]) / (2.0 * c_sq * c_sq)
-                                         - u_sq / (2.0 * c_sq));
-        d_equ[8] = w2 * local_density * (1.0 + u[8] / c_sq
-                                         + (u[8] * u[8]) / (2.0 * c_sq * c_sq)
-                                         - u_sq / (2.0 * c_sq));
-
-        /* relaxation step */
-        for (int kk = 0; kk < NSPEEDS; kk++)
-        {
-          cells[ii * params.nx + jj].speeds[kk] = tmp_cells[ii * params.nx + jj].speeds[kk]
-                                                  + params.omega
-                                                  * (d_equ[kk] - tmp_cells[ii * params.nx + jj].speeds[kk]);
-        }
-      }
-    }
-  }
+	// Wait for kernel to finish
+	err = clFinish(ocl.queue);
+	checkError(err, "waiting for collision kernel", __LINE__);
 
   return EXIT_SUCCESS;
 }
@@ -450,7 +389,7 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
 float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl)
 {
   int    tot_cells = 0;  /* no. of cells used in calculation */
-  float tot_u;          /* accumulated magnitudes of velocity for each cell */
+  double tot_u;          /* accumulated magnitudes of velocity for each cell */
 
   /* initialise */
   tot_u = 0.0;
@@ -494,7 +433,6 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl oc
       }
     }
   }
-
   return tot_u / (float)tot_cells;
 }
 
@@ -709,6 +647,10 @@ int initialise(const char* paramfile, const char* obstaclefile,
   checkError(err, "creating accelerate_flow kernel", __LINE__);
   ocl->propagate = clCreateKernel(ocl->program, "propagate", &err);
   checkError(err, "creating propagate kernel", __LINE__);
+  ocl->collision = clCreateKernel(ocl->program, "collision", &err);
+  checkError(err, "creating collision kernel", __LINE__);
+  ocl->rebound = clCreateKernel(ocl->program, "rebound", &err);
+  checkError(err, "creating rebound kernel", __LINE__);
 
   // Allocate OpenCL buffers
   ocl->cells = clCreateBuffer(
@@ -750,6 +692,9 @@ int finalise(const t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr
   clReleaseMemObject(ocl.obstacles);
   clReleaseKernel(ocl.accelerate_flow);
   clReleaseKernel(ocl.propagate);
+  clReleaseKernel(ocl.collision);
+  clReleaseKernel(ocl.rebound);
+
   clReleaseProgram(ocl.program);
   clReleaseCommandQueue(ocl.queue);
   clReleaseContext(ocl.context);
@@ -761,8 +706,8 @@ int finalise(const t_param* params, t_speed** cells_ptr, t_speed** tmp_cells_ptr
 float calc_reynolds(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl)
 {
   const float viscosity = 1.0 / 6.0 * (2.0 / params.omega - 1.0);
-
-  return av_velocity(params, cells, obstacles, ocl) * params.reynolds_dim / viscosity;
+  float vel = av_velocity(params, cells, obstacles, ocl);
+  return  vel* params.reynolds_dim / viscosity;
 }
 
 float total_density(const t_param params, t_speed* cells)

@@ -1,7 +1,7 @@
 Setting target instruction set architecture to: Default (Advanced Vector Extension 2 (AVX2))
 OpenCL Intel CPU device was found!
-Device name: Intel(R) Core(TM) i3-5010U CPU @ 2.10GHz
-Device version: OpenCL 2.0 (Build 10094)
+Device name: Intel(R) Core(TM) i5-6500 CPU @ 3.20GHz
+Device version: OpenCL 2.0 (Build 25)
 Device vendor: Intel(R) Corporation
 Device profile: FULL_PROFILE
 Compilation started
@@ -12,6 +12,8 @@ Device build started
 Device build done
 Kernel <accelerate_flow> was not vectorized
 Kernel <propagate> was not vectorized
+Kernel <collision> was not vectorized
+Kernel <rebound> was not vectorized
 Done.
 accelerate_flow info:
 	Maximum work-group size: 8192
@@ -21,6 +23,20 @@ accelerate_flow info:
 	Minimum amount of private memory: 0
 
 propagate info:
+	Maximum work-group size: 8192
+	Compiler work-group size: (0, 0, 0)
+	Local memory size: 0
+	Preferred multiple of work-group size: 128
+	Minimum amount of private memory: 0
+
+collision info:
+	Maximum work-group size: 8192
+	Compiler work-group size: (0, 0, 0)
+	Local memory size: 0
+	Preferred multiple of work-group size: 128
+	Minimum amount of private memory: 0
+
+rebound info:
 	Maximum work-group size: 8192
 	Compiler work-group size: (0, 0, 0)
 	Local memory size: 0
