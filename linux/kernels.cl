@@ -9,7 +9,7 @@ typedef struct
 kernel void accelerate_flow(global t_speed* cells,
                             global int* obstacles,
                             int nx, int ny,
-                            double density, double accel)
+                            float density, float accel)
 {
   /* compute weighting factors */
   float w1 = density * accel / 9.0;
@@ -69,7 +69,7 @@ kernel void propagate(global t_speed* cells,
 }
 
 
-kernel void collision(global t_speed* cells, global t_speed* tmp_cells, global int* obstacles, int nx, int ny, double omega)
+kernel void collision(global t_speed* cells, global t_speed* tmp_cells, global int* obstacles, int nx, int ny, float omega)
 {
   const float c_sq = 1.0 / 3.0; /* square of speed of sound */
   const float w0 = 4.0 / 9.0;  /* weighting factor */
@@ -183,5 +183,49 @@ kernel void rebound(global t_speed* cells,global t_speed* tmp_cells, global int*
         cells[ii * nx + jj].speeds[6] = tmp_cells[ii * nx + jj].speeds[8];
         cells[ii * nx + jj].speeds[7] = tmp_cells[ii * nx + jj].speeds[5];
         cells[ii * nx + jj].speeds[8] = tmp_cells[ii * nx + jj].speeds[6];
+      }
+}
+
+
+kernel void av_velocity(global t_speed* cells, global int* obstacles, global float* tot_vel, int nx)
+{
+         /* accumulated magnitudes of velocity for each cell */
+  int jj = get_global_id(0);
+  int ii = get_global_id(1);
+
+
+  /* loop over all non-blocked cells */
+
+      /* ignore occupied cells */
+      if (!obstacles[ii * nx + jj])
+      {
+        /* local density total */
+        float local_density = 0.0;
+
+        for (int kk = 0; kk < NSPEEDS; kk++)
+        {
+          local_density += cells[ii * nx + jj].speeds[kk];
+        }
+
+        /* x-component of velocity */
+        float u_x = (cells[ii * nx + jj].speeds[1]
+                      + cells[ii * nx + jj].speeds[5]
+                      + cells[ii * nx + jj].speeds[8]
+                      - (cells[ii * nx + jj].speeds[3]
+                         + cells[ii * nx + jj].speeds[6]
+                         + cells[ii * nx + jj].speeds[7]))
+                     / local_density;
+        /* compute y velocity component */
+        float u_y = (cells[ii * nx + jj].speeds[2]
+                      + cells[ii * nx + jj].speeds[5]
+                      + cells[ii * nx + jj].speeds[6]
+                      - (cells[ii * nx + jj].speeds[4]
+                         + cells[ii * nx + jj].speeds[7]
+                         + cells[ii * nx + jj].speeds[8]))
+                     / local_density;
+        /* accumulate the norm of x- and y- velocity components */
+        float tot_u = sqrt((u_x * u_x) + (u_y * u_y));
+		mem_fence(CLK_GLOBAL_MEM_FENCE);
+		*tot_vel += tot_u;
       }
 }
