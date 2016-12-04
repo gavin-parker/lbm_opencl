@@ -56,7 +56,7 @@
 #include<string.h>
 #ifdef __unix__
 #include<sys/time.h>
-/#include<sys/resource.h>
+#include<sys/resource.h>
 #else
 #include <time.h>
 #endif
