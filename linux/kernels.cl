@@ -246,7 +246,6 @@ kernel void av_velocity(global t_speed* cells, global int* obstacles, global flo
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 	  }
-	  	barrier(CLK_LOCAL_MEM_FENCE);
 	  if(local_index == 0){
 		tot_vel[get_group_id(0) + get_group_id(1)*get_num_groups(0)] = scratch[0];
 	  }

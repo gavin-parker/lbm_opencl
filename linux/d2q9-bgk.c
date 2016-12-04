@@ -216,11 +216,11 @@ int main(int argc, char* argv[])
   {
     timestep(params, cells, tmp_cells, obstacles, ocl);
     av_vels[tt] = av_velocity(params, cells, obstacles, ocl);
-//#ifdef DEBUG
+#ifdef DEBUG
     printf("==timestep: %d==\n", tt);
     printf("av velocity: %.12E\n", av_vels[tt]);
     printf("tot density: %.12E\n", total_density(params, cells));
-//#endif
+#endif
   }
   err = clEnqueueReadBuffer(
 	  ocl.queue, ocl.cells, CL_TRUE, 0,
@@ -431,12 +431,11 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl oc
 	checkError(err, "reading total_vel data", __LINE__);
 
 	double tot = 0;
-	
+#pragma simd
 	for (int i = 0; i < ocl.workGroups; i++) {
 		tot += total_vel[i];
 	}
 
-	printf("total: %lf \n", tot);
   return tot / (double)total_cells;
 }
 
