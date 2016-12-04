@@ -101,6 +101,8 @@ typedef struct
   cl_mem tmp_cells;
   cl_mem obstacles;
   cl_mem total_vel;
+  int workGroups;
+  size_t workGroupSize;
 } t_ocl;
 
 /* struct to hold the 'speed' values */
@@ -152,7 +154,7 @@ void usage(const char* exe);
 cl_device_id selectOpenCLDevice();
 
 int total_cells;
-float total_vel;
+float* total_vel = NULL;
 /*
 ** main program:
 ** initialise, timestep loop, finalise
@@ -204,7 +206,7 @@ int main(int argc, char* argv[])
     sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
   checkError(err, "writing cells data", __LINE__);
 
-  // Write obstacles to OpenCL buffer
+  // Write obstacles to OpenCL buffer00
   err = clEnqueueWriteBuffer(
     ocl.queue, ocl.obstacles, CL_TRUE, 0,
     sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
@@ -404,7 +406,7 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
 float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl ocl)
 {
 	cl_int err;
-
+	//printf("size of work group: %d\n", ocl->workGroupSize);
 	// Set kernel arguments
 	err = clSetKernelArg(ocl.av_velocity, 0, sizeof(cl_mem), &ocl.cells);
 	checkError(err, "setting av_velocity arg 0", __LINE__);
@@ -412,15 +414,30 @@ float av_velocity(const t_param params, t_speed* cells, int* obstacles, t_ocl oc
 	checkError(err, "setting av_velocity arg 1", __LINE__);
 	err = clSetKernelArg(ocl.av_velocity, 2, sizeof(cl_mem), &ocl.total_vel);
 	checkError(err, "setting av_velocity arg 2", __LINE__);
-	err = clSetKernelArg(ocl.av_velocity, 3, sizeof(cl_int), &params.nx);
+	err = clSetKernelArg(ocl.av_velocity, 3, sizeof(cl_float)* ocl.workGroupSize, 0);
 	checkError(err, "setting av_velocity arg 3", __LINE__);
+	err = clSetKernelArg(ocl.av_velocity, 4, sizeof(cl_int), &params.nx);
+	checkError(err, "setting av_velocity arg 4", __LINE__);
+
+	size_t global[2] = { params.nx, params.ny };
+	err = clEnqueueNDRangeKernel(ocl.queue, ocl.av_velocity,
+		2, NULL, global, NULL, 0, NULL, NULL);
+	checkError(err, "enqueueing av_vel kernel", __LINE__);
+
 
 	err = clEnqueueReadBuffer(
 		ocl.queue, ocl.total_vel, CL_TRUE, 0,
-		sizeof(float), &total_vel, 0, NULL, NULL);
-	checkError(err, "reading tmp_cells data", __LINE__);
+		sizeof(cl_float)*(ocl.workGroups), total_vel, 0, NULL, NULL);
+	checkError(err, "reading total_vel data", __LINE__);
 
-  return total_vel / (float)total_cells;
+	double tot = 0;
+	
+	for (int i = 0; i < ocl.workGroups; i++) {
+		tot += total_vel[i];
+	}
+
+	printf("total: %lf \n", tot);
+  return tot / (double)total_cells;
 }
 
 int initialise(const char* paramfile, const char* obstaclefile,
@@ -664,11 +681,19 @@ int initialise(const char* paramfile, const char* obstaclefile,
     sizeof(cl_int) * params->nx * params->ny, NULL, &err);
   checkError(err, "creating obstacles buffer", __LINE__);
 
+  size_t size;
+  err = clGetKernelWorkGroupInfo(ocl->av_velocity, ocl->device, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &size, NULL);
+  ocl->workGroupSize = size;
+  printf("workgroup size: %d \n", ocl->workGroupSize);
+  printf("workgroup count: %d \n", (params->nx*params->ny) / ocl->workGroupSize);
+  ocl->workGroups = (params->nx*params->ny) / ocl->workGroupSize;
+
   ocl->total_vel = clCreateBuffer(
 	  ocl->context, CL_MEM_READ_WRITE,
-	  sizeof(cl_float), NULL, &err);
+	  sizeof(cl_float)*(ocl->workGroups), NULL, &err);
   checkError(err, "creating vel buffer", __LINE__);
 
+  total_vel = (float*)malloc(sizeof(float)*(ocl->workGroups));
 
   return EXIT_SUCCESS;
 }

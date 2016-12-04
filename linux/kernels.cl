@@ -187,13 +187,20 @@ kernel void rebound(global t_speed* cells,global t_speed* tmp_cells, global int*
 }
 
 
-kernel void av_velocity(global t_speed* cells, global int* obstacles, global float* tot_vel, int nx)
+kernel void av_velocity(global t_speed* cells, global int* obstacles, global float* tot_vel,local float* scratch, int nx)
 {
          /* accumulated magnitudes of velocity for each cell */
   int jj = get_global_id(0);
   int ii = get_global_id(1);
 
+  int jj_local = get_local_id(0);
+  int ii_local = get_local_id(1);
 
+  int nx_local = get_local_size(0);
+  int ny_local = get_local_size(1);
+  float tot_u = 0;
+  int local_index = ii_local*nx_local + jj_local;
+  int local_size = nx_local * ny_local;
   /* loop over all non-blocked cells */
 
       /* ignore occupied cells */
@@ -224,8 +231,28 @@ kernel void av_velocity(global t_speed* cells, global int* obstacles, global flo
                          + cells[ii * nx + jj].speeds[8]))
                      / local_density;
         /* accumulate the norm of x- and y- velocity components */
-        float tot_u = sqrt((u_x * u_x) + (u_y * u_y));
-		mem_fence(CLK_GLOBAL_MEM_FENCE);
-		*tot_vel += tot_u;
+        tot_u = sqrt((u_x * u_x) + (u_y * u_y));
+
       }
+
+	   
+	  scratch[local_index] = tot_u;
+	  	barrier(CLK_LOCAL_MEM_FENCE);
+	  for(int offset = local_size/2; offset > 0; offset = offset / 2){
+		if(local_index < offset){
+			float other = scratch[local_index + offset];
+			float mine = scratch[local_index];
+			scratch[local_index] = mine + other;
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+	  }
+	  	barrier(CLK_LOCAL_MEM_FENCE);
+	  if(local_index == 0){
+		tot_vel[get_group_id(0) + get_group_id(1)*get_num_groups(0)] = scratch[0];
+	  }
+
+
+
+	//printf("tot_vel: %f\n", *tot_vel);
+
 }
