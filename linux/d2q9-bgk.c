@@ -173,11 +173,11 @@ int main(int argc, char* argv[])
 #ifdef __unix__
 	struct timeval timstr;        /* structure to hold elapsed time */
 	struct rusage ru;             /* structure to hold CPU time--system and user */
-#endif
+
 	float tic, toc;              /* floating point numbers to calculate elapsed wallclock time */
 	float usrtim;                /* floating point number to record elapsed user CPU time */
 	float systim;                /* floating point number to record elapsed system CPU time */
-
+#endif
 	/* parse the command line */
 	if (argc != 3)
 	{
@@ -217,11 +217,11 @@ int main(int argc, char* argv[])
 		timestep(params, cells, tmp_cells, obstacles, ocl, flip);
 		av_vels[tt] = av_velocity(params, cells, obstacles, ocl);
 		flip = !flip;
-//#ifdef DEBUG
+#ifdef DEBUG
 		printf("==timestep: %d==\n", tt);
 		printf("av velocity: %.12E\n", av_vels[tt]);
 		printf("tot density: %.12E\n", total_density(params, cells));
-//#endif
+#endif
 	}
 	if (!flip){
 		err = clEnqueueReadBuffer(
@@ -245,6 +245,7 @@ int main(int argc, char* argv[])
   usrtim = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
   timstr = ru.ru_stime;
   systim = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
+  double time = toc - tic;
 #else
   clock_t end = clock();
   float time = (float)(end - start) / CLOCKS_PER_SEC;
@@ -253,7 +254,7 @@ int main(int argc, char* argv[])
   printf("==done==\n");
   printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, cells, obstacles, ocl, av_vels[params.maxIters-1]));
 #ifdef __unix__
-  printf("Elapsed time:\t\t\t%.6lf (s)\n", toc - tic);
+  printf("Elapsed time:\t\t\t%.6lf (s)\n", time);
   printf("Elapsed user CPU time:\t\t%.6lf (s)\n", usrtim);
   printf("Elapsed system CPU time:\t%.6lf (s)\n", systim);
 #else
