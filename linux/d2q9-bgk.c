@@ -103,6 +103,8 @@ typedef struct
   cl_mem total_vel;
   int workGroups;
   size_t workGroupSize;
+
+  cl_mem obstacles_vector;
 } t_ocl;
 
 /* struct to hold the 'speed' values */
@@ -110,6 +112,13 @@ typedef struct
 {
   float speeds[NSPEEDS];
 } t_speed;
+
+typedef struct
+{
+	short ii;
+	short jj;
+} t_obstacle;
+
 
 /*
 ** function prototypes
@@ -155,6 +164,8 @@ cl_device_id selectOpenCLDevice();
 
 int total_cells;
 float* total_vel = NULL;
+int total_obstacles = 0;
+t_obstacle* obstacles_vector;
 /*
 ** main program:
 ** initialise, timestep loop, finalise
@@ -174,9 +185,9 @@ int main(int argc, char* argv[])
 	struct timeval timstr;        /* structure to hold elapsed time */
 	struct rusage ru;             /* structure to hold CPU time--system and user */
 
-	float tic, toc;              /* floating point numbers to calculate elapsed wallclock time */
-	float usrtim;                /* floating point number to record elapsed user CPU time */
-	float systim;                /* floating point number to record elapsed system CPU time */
+	double tic, toc;              /* floating point numbers to calculate elapsed wallclock time */
+	double usrtim;                /* floating point number to record elapsed user CPU time */
+	double systim;                /* floating point number to record elapsed system CPU time */
 #endif
 	/* parse the command line */
 	if (argc != 3)
@@ -191,6 +202,11 @@ int main(int argc, char* argv[])
 
 	/* initialise our data structures and load values from file */
 	initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &obstacles, &av_vels, &ocl);
+
+	err = clEnqueueWriteBuffer(
+		ocl.queue, ocl.obstacles_vector, CL_TRUE, 0,
+		sizeof(t_obstacle) * total_obstacles, obstacles_vector, 0, NULL, NULL);
+	checkError(err, "writing obstacles vector data", __LINE__);
 
 	/* iterate for maxIters timesteps */
 #ifdef __unix__
@@ -211,6 +227,8 @@ int main(int argc, char* argv[])
 		ocl.queue, ocl.obstacles, CL_TRUE, 0,
 		sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
 	checkError(err, "writing obstacles data", __LINE__);
+
+
 	int flip = 0;
 	for (int tt = 0; tt < params.maxIters; tt++)
 	{
@@ -254,7 +272,7 @@ int main(int argc, char* argv[])
   printf("==done==\n");
   printf("Reynolds number:\t\t%.12E\n", calc_reynolds(params, cells, obstacles, ocl, av_vels[params.maxIters-1]));
 #ifdef __unix__
-  printf("Elapsed time:\t\t\t%.6lf (s)\n", time);
+  printf("Elapsed time:\t\t\t%.6f (s)\n", time);
   printf("Elapsed user CPU time:\t\t%.6lf (s)\n", usrtim);
   printf("Elapsed system CPU time:\t%.6lf (s)\n", systim);
 #else
@@ -328,7 +346,7 @@ int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obsta
 	checkError(err, "setting rebound arg 0", __LINE__);
 	err = clSetKernelArg(ocl.rebound, !flip, sizeof(cl_mem), &ocl.tmp_cells);
 	checkError(err, "setting rebound arg 1", __LINE__);
-	err = clSetKernelArg(ocl.rebound, 2, sizeof(cl_mem), &ocl.obstacles);
+	err = clSetKernelArg(ocl.rebound, 2, sizeof(cl_mem), &ocl.obstacles_vector);
 	checkError(err, "setting rebound arg 2", __LINE__);
 	err = clSetKernelArg(ocl.rebound, 3, sizeof(cl_int), &params.nx);
 	checkError(err, "setting rebound arg 3", __LINE__);
@@ -336,9 +354,9 @@ int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obsta
 	checkError(err, "setting rebound arg 4", __LINE__);
 
 	// Enqueue kernel
-	size_t global[2] = { params.nx, params.ny };
+	size_t global[1] = { total_obstacles };
 	err = clEnqueueNDRangeKernel(ocl.queue, ocl.rebound,
-		2, NULL, global, NULL, 0, NULL, NULL);
+		1, NULL, global, NULL, 0, NULL, NULL);
 	checkError(err, "enqueueing rebound kernel", __LINE__);
 
 	// Wait for kernel to finish
@@ -551,11 +569,26 @@ int initialise(const char* paramfile, const char* obstaclefile,
     (*obstacles_ptr)[yy * params->nx + xx] = blocked;
 	if (blocked) {
 		total_cells--;
+		total_obstacles++;
 	}
   }
+  obstacles_vector = malloc(sizeof(t_obstacle)*total_obstacles);
 
   /* and close the file */
   fclose(fp);
+  int i = 0;
+  for (int ii = 0; ii < params->ny; ii++)
+  {
+	  for (int jj = 0; jj < params->nx; jj++)
+	  {
+		  if ((*obstacles_ptr)[ii * params->nx + jj]) {
+			  obstacles_vector[i].ii = ii;
+			  obstacles_vector[i].jj = jj;
+			  i++;
+		  }
+	  }
+  }
+
 
   /*
   ** allocate space to hold a record of the avarage velocities computed
@@ -640,6 +673,11 @@ int initialise(const char* paramfile, const char* obstaclefile,
     ocl->context, CL_MEM_READ_WRITE,
     sizeof(cl_int) * params->nx * params->ny, NULL, &err);
   checkError(err, "creating obstacles buffer", __LINE__);
+
+  ocl->obstacles_vector = clCreateBuffer(
+	  ocl->context, CL_MEM_READ_WRITE,
+	  sizeof(t_obstacle) *total_obstacles, NULL, &err);
+  checkError(err, "creating obstacles vector buffer", __LINE__);
 
 
   ocl->workGroupSize = 16*16;

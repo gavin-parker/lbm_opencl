@@ -11,6 +11,14 @@ typedef struct
   float speeds[NSPEEDS];
 } t_speed;
 
+
+typedef struct
+{
+	short ii;
+	short jj;
+} t_obstacle;
+
+
 kernel void accelerate_flow(global t_speed* cells,
                             global int* obstacles,
                             int nx, int ny,
@@ -207,31 +215,29 @@ kernel void collision(global t_speed* cells, global t_speed* tmp_cells, global i
 		
 }
 
-kernel void rebound(global t_speed* cells,global t_speed* tmp_cells, global int* obstacles, int nx, int ny)
+kernel void rebound(global t_speed* cells,global t_speed* tmp_cells, global t_obstacle* obstacles_vector, int nx, int ny)
 {
+	int i = get_global_id(0);
+	/* if the cell contains an obstacle */
+	int ii = obstacles_vector[i].ii;
+	int jj = obstacles_vector[i].jj;
 
-  int jj = get_global_id(0);
-  int ii = get_global_id(1);
+	int y_n = ((ii + 1) % ny)*nx;
+	int y_s = ((ii == 0) ? (ii + ny - 1) : (ii - 1))*nx;
+	int y = ii*nx;
+	int current = y + jj;
 
-      /* if the cell contains an obstacle */
-      if (obstacles[ii * nx + jj])
-      {
-		int y_n = ((ii + 1) % ny)*nx;
-		int y_s = ((ii == 0) ? (ii + ny - 1) : (ii - 1))*nx;
-		int y = ii*nx;
-		int current = y + jj;
-
-		int x_e = (current + 1) % nx;
-		int x_w = (jj == 0) ? (jj + nx - 1) : (jj - 1);
-		tmp_cells[current].speeds[1] = cells[y + x_e].speeds[3];
-		tmp_cells[current].speeds[2] = cells[y_n + jj].speeds[4];
-		tmp_cells[current].speeds[3] = cells[y + x_w].speeds[1];
-		tmp_cells[current].speeds[4] = cells[y_s + jj].speeds[2];
-		tmp_cells[current].speeds[5] = cells[y_n + x_e].speeds[7];
-		tmp_cells[current].speeds[6] = cells[y_n + x_w].speeds[8];
-		tmp_cells[current].speeds[7] = cells[y_s + x_w].speeds[5];
-		tmp_cells[current].speeds[8] = cells[y_s + x_e].speeds[6];
-      }
+	int x_e = (current + 1) % nx;
+	int x_w = (jj == 0) ? (jj + nx - 1) : (jj - 1);
+	tmp_cells[current].speeds[1] = cells[y + x_e].speeds[3];
+	tmp_cells[current].speeds[2] = cells[y_n + jj].speeds[4];
+	tmp_cells[current].speeds[3] = cells[y + x_w].speeds[1];
+	tmp_cells[current].speeds[4] = cells[y_s + jj].speeds[2];
+	tmp_cells[current].speeds[5] = cells[y_n + x_e].speeds[7];
+	tmp_cells[current].speeds[6] = cells[y_n + x_w].speeds[8];
+	tmp_cells[current].speeds[7] = cells[y_s + x_w].speeds[5];
+	tmp_cells[current].speeds[8] = cells[y_s + x_e].speeds[6];
+      
 }
 
 
@@ -254,7 +260,7 @@ kernel void av_velocity(global t_speed* cells, global int* obstacles, global flo
   int local_size = nx_local * ny_local;
   /* loop over all non-blocked cells */
 
-      /* ignore occupied cells */
+      /* ignore occupied cells */		
       if (!obstacles[ii * nx + jj])
       {
         /* local density total */
