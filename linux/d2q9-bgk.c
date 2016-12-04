@@ -170,7 +170,7 @@ int main(int argc, char* argv[])
   int*     obstacles = NULL;    /* grid indicating which cells are blocked */
   float* av_vels   = NULL;     /* a record of the av. velocity computed for each timestep */
   cl_int err;
-#ifdef LINUX
+#ifdef __unix__
   struct timeval timstr;        /* structure to hold elapsed time */
   struct rusage ru;             /* structure to hold CPU time--system and user */
 #endif
@@ -683,8 +683,8 @@ int initialise(const char* paramfile, const char* obstaclefile,
   size_t size;
   err = clGetKernelWorkGroupInfo(ocl->av_velocity, ocl->device, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &size, NULL);
   ocl->workGroupSize = size;
-  printf("workgroup size: %d \n", ocl->workGroupSize);
-  printf("workgroup count: %d \n", (params->nx*params->ny) / ocl->workGroupSize);
+  //printf("workgroup size: %d \n", ocl->workGroupSize);
+  //printf("workgroup count: %d \n", (params->nx*params->ny) / ocl->workGroupSize);
   ocl->workGroups = (params->nx*params->ny) / ocl->workGroupSize;
 
   ocl->total_vel = clCreateBuffer(
