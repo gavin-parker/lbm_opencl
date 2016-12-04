@@ -187,8 +187,11 @@ kernel void rebound(global t_speed* cells,global t_speed* tmp_cells, global int*
 }
 
 
-kernel void av_velocity(global t_speed* cells, global int* obstacles, global float* tot_vel,local float* scratch, int nx)
+kernel void av_velocity(global t_speed* cells, global int* obstacles, global float* tot_vel, int nx)
 {
+
+
+local float scratch[16*16];
          /* accumulated magnitudes of velocity for each cell */
   int jj = get_global_id(0);
   int ii = get_global_id(1);
@@ -248,6 +251,7 @@ kernel void av_velocity(global t_speed* cells, global int* obstacles, global flo
 	  }
 	  if(local_index == 0){
 		tot_vel[get_group_id(0) + get_group_id(1)*get_num_groups(0)] = scratch[0];
+		//printf("local_size: %d\n", local_size);
 	  }
 
 
