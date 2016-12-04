@@ -116,7 +116,7 @@ kernel void collision(global t_speed* cells, global t_speed* tmp_cells, global i
 	speeds[8] = cells[y_n + x_w].speeds[8];
 	speeds[4] = cells[y_n + jj].speeds[4];
 	speeds[7] = cells[y_n + x_e].speeds[7];
-	int obstacle = (int)!obstacles[current];
+	int obstacle = !((int)obstacles[current]);
 	/* compute local density total */
 	float local_density = 0.0;
 
@@ -190,25 +190,24 @@ kernel void collision(global t_speed* cells, global t_speed* tmp_cells, global i
 		tmp_cells[current].speeds[i] = speeds[i] + omega*a;
 	}
        
-	  scratch[local_index] = tot_u;
-	  	barrier(CLK_LOCAL_MEM_FENCE);
-	  for(int offset = local_size/2; offset > 0; offset = offset / 2){
+	scratch[local_index] = tot_u;
+	barrier(CLK_LOCAL_MEM_FENCE);
+	for(int offset = local_size/2; offset > 0; offset = offset / 2){
 		if(local_index < offset){
 			float other = scratch[local_index + offset];
 			float mine = scratch[local_index];
 			scratch[local_index] = mine + other;
 		}
-		barrier(CLK_LOCAL_MEM_FENCE);
-	  }
-	  if(local_index == 0){
+	barrier(CLK_LOCAL_MEM_FENCE);
+	}
+	if(local_index == 0){
 		tot_vel[get_group_id(0) + get_group_id(1)*get_num_groups(0)] = scratch[0];
-		//printf("local_size: %d\n", local_size);
-	  }
+	}
 
 		
 }
 
-kernel void rebound(global t_speed* cells,global t_speed* tmp_cells, global int* obstacles, int nx)
+kernel void rebound(global t_speed* cells,global t_speed* tmp_cells, global int* obstacles, int nx, int ny)
 {
 
   int jj = get_global_id(0);
@@ -217,16 +216,21 @@ kernel void rebound(global t_speed* cells,global t_speed* tmp_cells, global int*
       /* if the cell contains an obstacle */
       if (obstacles[ii * nx + jj])
       {
-        /* called after propagate, so taking values from scratch space
-        ** mirroring, and writing into main grid */
-        tmp_cells[ii * nx + jj].speeds[1] = cells[ii * nx + jj].speeds[3];
-        tmp_cells[ii * nx + jj].speeds[2] = cells[ii * nx + jj].speeds[4];
-        tmp_cells[ii * nx + jj].speeds[3] = cells[ii * nx + jj].speeds[1];
-        tmp_cells[ii * nx + jj].speeds[4] = cells[ii * nx + jj].speeds[2];
-        tmp_cells[ii * nx + jj].speeds[5] = cells[ii * nx + jj].speeds[7];
-        tmp_cells[ii * nx + jj].speeds[6] = cells[ii * nx + jj].speeds[8];
-        tmp_cells[ii * nx + jj].speeds[7] = cells[ii * nx + jj].speeds[5];
-        tmp_cells[ii * nx + jj].speeds[8] = cells[ii * nx + jj].speeds[6];
+		int y_n = ((ii + 1) % ny)*nx;
+		int y_s = ((ii == 0) ? (ii + ny - 1) : (ii - 1))*nx;
+		int y = ii*nx;
+		int current = y + jj;
+
+		int x_e = (current + 1) % nx;
+		int x_w = (jj == 0) ? (jj + nx - 1) : (jj - 1);
+		tmp_cells[current].speeds[1] = cells[y + x_e].speeds[3];
+		tmp_cells[current].speeds[2] = cells[y_n + jj].speeds[4];
+		tmp_cells[current].speeds[3] = cells[y + x_w].speeds[1];
+		tmp_cells[current].speeds[4] = cells[y_s + jj].speeds[2];
+		tmp_cells[current].speeds[5] = cells[y_n + x_e].speeds[7];
+		tmp_cells[current].speeds[6] = cells[y_n + x_w].speeds[8];
+		tmp_cells[current].speeds[7] = cells[y_s + x_w].speeds[5];
+		tmp_cells[current].speeds[8] = cells[y_s + x_e].speeds[6];
       }
 }
 

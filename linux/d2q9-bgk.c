@@ -161,81 +161,81 @@ float* total_vel = NULL;
 */
 int main(int argc, char* argv[])
 {
-  char*    paramfile = NULL;    /* name of the input parameter file */
-  char*    obstaclefile = NULL; /* name of a the input obstacle file */
-  t_param  params;              /* struct to hold parameter values */
-  t_ocl    ocl;                 /* struct to hold OpenCL objects */
-  t_speed* cells     = NULL;    /* grid containing fluid densities */
-  t_speed* tmp_cells = NULL;    /* scratch space */
-  int*     obstacles = NULL;    /* grid indicating which cells are blocked */
-  float* av_vels   = NULL;     /* a record of the av. velocity computed for each timestep */
-  cl_int err;
+	char*    paramfile = NULL;    /* name of the input parameter file */
+	char*    obstaclefile = NULL; /* name of a the input obstacle file */
+	t_param  params;              /* struct to hold parameter values */
+	t_ocl    ocl;                 /* struct to hold OpenCL objects */
+	t_speed* cells = NULL;    /* grid containing fluid densities */
+	t_speed* tmp_cells = NULL;    /* scratch space */
+	int*     obstacles = NULL;    /* grid indicating which cells are blocked */
+	float* av_vels = NULL;     /* a record of the av. velocity computed for each timestep */
+	cl_int err;
 #ifdef __unix__
-  struct timeval timstr;        /* structure to hold elapsed time */
-  struct rusage ru;             /* structure to hold CPU time--system and user */
+	struct timeval timstr;        /* structure to hold elapsed time */
+	struct rusage ru;             /* structure to hold CPU time--system and user */
 #endif
-  float tic, toc;              /* floating point numbers to calculate elapsed wallclock time */
-  float usrtim;                /* floating point number to record elapsed user CPU time */
-  float systim;                /* floating point number to record elapsed system CPU time */
+	float tic, toc;              /* floating point numbers to calculate elapsed wallclock time */
+	float usrtim;                /* floating point number to record elapsed user CPU time */
+	float systim;                /* floating point number to record elapsed system CPU time */
 
-  /* parse the command line */
-  if (argc != 3)
-  {
-    usage(argv[0]);
-  }
-  else
-  {
-    paramfile = argv[1];
-    obstaclefile = argv[2];
-  }
+	/* parse the command line */
+	if (argc != 3)
+	{
+		usage(argv[0]);
+	}
+	else
+	{
+		paramfile = argv[1];
+		obstaclefile = argv[2];
+	}
 
-  /* initialise our data structures and load values from file */
-  initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &obstacles, &av_vels, &ocl);
+	/* initialise our data structures and load values from file */
+	initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &obstacles, &av_vels, &ocl);
 
-  /* iterate for maxIters timesteps */
+	/* iterate for maxIters timesteps */
 #ifdef __unix__
-  gettimeofday(&timstr, NULL);
-  tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
+	gettimeofday(&timstr, NULL);
+	tic = timstr.tv_sec + (timstr.tv_usec / 1000000.0);
 #else
-  clock_t start = clock();
+	clock_t start = clock();
 #endif
 
-  // Write cells to OpenCL buffer
-  err = clEnqueueWriteBuffer(
-    ocl.queue, ocl.cells, CL_TRUE, 0,
-    sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
-  checkError(err, "writing cells data", __LINE__);
+	// Write cells to OpenCL buffer
+	err = clEnqueueWriteBuffer(
+		ocl.queue, ocl.cells, CL_TRUE, 0,
+		sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
+	checkError(err, "writing cells data", __LINE__);
 
-  // Write obstacles to OpenCL buffer00
-  err = clEnqueueWriteBuffer(
-    ocl.queue, ocl.obstacles, CL_TRUE, 0,
-    sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
-  checkError(err, "writing obstacles data", __LINE__);
-  int flip = 0;
-  for (int tt = 0; tt < params.maxIters; tt++)
-  {
-    timestep(params, cells, tmp_cells, obstacles, ocl, flip);
-    av_vels[tt] = av_velocity(params, cells, obstacles, ocl);
-	flip = !flip;
-#ifdef DEBUG
-    printf("==timestep: %d==\n", tt);
-    printf("av velocity: %.12E\n", av_vels[tt]);
-    printf("tot density: %.12E\n", total_density(params, cells));
-#endif
-  }
-  if (params.maxIters % 2 == 1) {
-	  err = clEnqueueReadBuffer(
-		  ocl.queue, ocl.tmp_cells, CL_TRUE, 0,
-		  sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
-  }
-  else {
-	  err = clEnqueueReadBuffer(
+	// Write obstacles to OpenCL buffer00
+	err = clEnqueueWriteBuffer(
+		ocl.queue, ocl.obstacles, CL_TRUE, 0,
+		sizeof(cl_int) * params.nx * params.ny, obstacles, 0, NULL, NULL);
+	checkError(err, "writing obstacles data", __LINE__);
+	int flip = 0;
+	for (int tt = 0; tt < params.maxIters; tt++)
+	{
+		timestep(params, cells, tmp_cells, obstacles, ocl, flip);
+		av_vels[tt] = av_velocity(params, cells, obstacles, ocl);
+		flip = !flip;
+//#ifdef DEBUG
+		printf("==timestep: %d==\n", tt);
+		printf("av velocity: %.12E\n", av_vels[tt]);
+		printf("tot density: %.12E\n", total_density(params, cells));
+//#endif
+	}
+	if (!flip){
+		err = clEnqueueReadBuffer(
 		  ocl.queue, ocl.cells, CL_TRUE, 0,
 		  sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
-  }
+	}
+	else {
+		err = clEnqueueReadBuffer(
+			ocl.queue, ocl.tmp_cells, CL_TRUE, 0,
+			sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
+	}
 
   checkError(err, "reading tmp_cells data", __LINE__);
-
+   
 
 #ifdef  __unix__
   gettimeofday(&timstr, NULL);
@@ -271,26 +271,13 @@ int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obst
   cl_int err;
 
   // Write cells to device
-  err = clEnqueueWriteBuffer(
-    ocl.queue, ocl.cells, CL_TRUE, 0,
-    sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
-  checkError(err, "writing cells data", __LINE__);
-
   accelerate_flow(params, cells, obstacles, ocl, flip);
-  //propagate(params, cells, tmp_cells, ocl);
   collision(params, obstacles, ocl, flip);
   rebound(params, cells, tmp_cells, obstacles, ocl, flip);
 
 
   err = clFinish(ocl.queue);
   checkError(err, "waiting for kernel", __LINE__);
-
-  // Read tmp_cells from device
-  err = clEnqueueReadBuffer(
-    ocl.queue, ocl.cells, CL_TRUE, 0,
-    sizeof(t_speed) * params.nx * params.ny, cells, 0, NULL, NULL);
-  checkError(err, "reading tmp_cells data", __LINE__);
-
 
   return EXIT_SUCCESS;
 }
@@ -331,34 +318,6 @@ int accelerate_flow(const t_param params, t_speed* cells, int* obstacles, t_ocl 
   return EXIT_SUCCESS;
 }
 
-int propagate(const t_param params, t_speed* cells, t_speed* tmp_cells, t_ocl ocl)
-{
-  cl_int err;
-
-  // Set kernel arguments
-  err = clSetKernelArg(ocl.propagate, 0, sizeof(cl_mem), &ocl.cells);
-  checkError(err, "setting propagate arg 0", __LINE__);
-  err = clSetKernelArg(ocl.propagate, 1, sizeof(cl_mem), &ocl.tmp_cells);
-  checkError(err, "setting propagate arg 1", __LINE__);
-  err = clSetKernelArg(ocl.propagate, 2, sizeof(cl_mem), &ocl.obstacles);
-  checkError(err, "setting propagate arg 2", __LINE__);
-  err = clSetKernelArg(ocl.propagate, 3, sizeof(cl_int), &params.nx);
-  checkError(err, "setting propagate arg 3", __LINE__);
-  err = clSetKernelArg(ocl.propagate, 4, sizeof(cl_int), &params.ny);
-  checkError(err, "setting propagate arg 4", __LINE__);
-
-  // Enqueue kernel
-  size_t global[2] = {params.nx, params.ny};
-  err = clEnqueueNDRangeKernel(ocl.queue, ocl.propagate,
-                               2, NULL, global, NULL, 0, NULL, NULL);
-  checkError(err, "enqueueing propagate kernel", __LINE__);
-
-  // Wait for kernel to finish
-  //err = clFinish(ocl.queue);
-  //checkError(err, "waiting for propagate kernel", __LINE__);
-
-  return EXIT_SUCCESS;
-}
 
 int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles, t_ocl ocl, int flip)
 {
@@ -372,6 +331,8 @@ int rebound(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obsta
 	checkError(err, "setting rebound arg 2", __LINE__);
 	err = clSetKernelArg(ocl.rebound, 3, sizeof(cl_int), &params.nx);
 	checkError(err, "setting rebound arg 3", __LINE__);
+	err = clSetKernelArg(ocl.rebound, 4, sizeof(cl_int), &params.ny);
+	checkError(err, "setting rebound arg 4", __LINE__);
 
 	// Enqueue kernel
 	size_t global[2] = { params.nx, params.ny };
