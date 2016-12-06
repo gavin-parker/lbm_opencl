@@ -9,13 +9,6 @@
 #define INDEX(ii,jj,nx,ny,speed) (((nx)*(ny)*(speed))+ ((ii)*(nx)+(jj)))
 
 
-typedef struct
-{
-	short ii;
-	short jj;
-} t_obstacle;
-
-
 kernel void accelerate_flow(global float* cells,
                             global int* obstacles,
                             int nx, int ny,
@@ -92,7 +85,7 @@ kernel void collision(global float* cells, global float* tmp_cells, global int* 
 	/* compute local density total */
 	float local_density = 0.0;
 
-
+	#pragma unroll
 	for (int i = 0; i < 9; i++) {
 		local_density += speeds[i];
 	}
@@ -152,11 +145,13 @@ kernel void collision(global float* cells, global float* tmp_cells, global int* 
 	u[0] = w_local * (u[0]) - speeds[0];
 		tmp_cells[INDEX(ii,jj,nx,ny,	0)] = (speeds[0] + omega*u[0])*obstacle;
 	float w1_local = W1 * local_density;
+		#pragma unroll
 	for (int i = 1; i < 5; i++) {
 		float a = w1_local * (u[i]) - speeds[i];
 		tmp_cells[INDEX(ii,jj,nx,ny,	i)] = speeds[i] + omega*a;
 	}
 	float w2_local = W2 * local_density;
+	#pragma unroll
 	for (int i = 5; i < 9; i++) {
 		float a = w2_local * (u[i]) - speeds[i];
 		tmp_cells[INDEX(ii,jj,nx,ny,	i)] = speeds[i] + omega*a;
@@ -179,12 +174,12 @@ kernel void collision(global float* cells, global float* tmp_cells, global int* 
 		
 }
 
-kernel void rebound(global float* cells,global float* tmp_cells, global t_obstacle* obstacles_vector, int nx, int ny)
+kernel void rebound(global float* cells,global float* tmp_cells, global short* obstacles_vector, int nx, int ny, int tot_obstacles)
 {
 	int i = get_global_id(0);
 	/* if the cell contains an obstacle */
-	int ii = obstacles_vector[i].ii;
-	int jj = obstacles_vector[i].jj;
+	short ii = obstacles_vector[i];
+	short jj = obstacles_vector[tot_obstacles+i];
 
 	int y_n = ((ii + 1) % ny);
 	int y_s = ((ii == 0) ? (ii + ny - 1) : (ii - 1));

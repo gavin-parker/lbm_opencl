@@ -109,13 +109,6 @@ typedef struct
 } t_ocl;
 
 
-typedef struct
-{
-	short ii;
-	short jj;
-} t_obstacle;
-
-
 /*
 ** function prototypes
 */
@@ -132,7 +125,6 @@ int initialise(const char* paramfile, const char* obstaclefile,
 */
 int timestep(const t_param params, float* cells, float* tmp_cells, int* obstacles, t_ocl ocl, int flip);
 int accelerate_flow(const t_param params, float* cells, int* obstacles, t_ocl ocl, int flip);
-int propagate(const t_param params, float* cells, float* tmp_cells, t_ocl ocl);
 int rebound(const t_param params, float* cells, float* tmp_cells, int* obstacles, t_ocl ocl, int flip);
 int collision(const t_param params, int* obstacles, t_ocl ocl, int flip);
 int write_values(const t_param params, float* cells, int* obstacles, float* av_vels);
@@ -161,7 +153,7 @@ cl_device_id selectOpenCLDevice();
 int total_cells;
 float* total_vel = NULL;
 int total_obstacles = 0;
-t_obstacle* obstacles_vector;
+short* obstacles_vector;
 /*
 ** main program:
 ** initialise, timestep loop, finalise
@@ -200,8 +192,8 @@ int main(int argc, char* argv[])
 	initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &obstacles, &av_vels, &ocl);
 
 	err = clEnqueueWriteBuffer(
-		ocl.queue, ocl.obstacles_vector, CL_TRUE, 0,
-		sizeof(t_obstacle) * total_obstacles, obstacles_vector, 0, NULL, NULL);
+		ocl.queue, ocl.obstacles_vector, CL_FALSE, 0,
+		sizeof(short) * total_obstacles*2, obstacles_vector, 0, NULL, NULL);
 	checkError(err, "writing obstacles vector data", __LINE__);
 
 	/* iterate for maxIters timesteps */
@@ -214,7 +206,7 @@ int main(int argc, char* argv[])
 
 	// Write cells to OpenCL buffer
 	err = clEnqueueWriteBuffer(
-		ocl.queue, ocl.cells, CL_TRUE, 0,
+		ocl.queue, ocl.cells, CL_FALSE, 0,
 		sizeof(float) * params.nx * params.ny*NSPEEDS, cells, 0, NULL, NULL);
 	checkError(err, "writing cells data", __LINE__);
 
@@ -348,6 +340,8 @@ int rebound(const t_param params, float* cells, float* tmp_cells, int* obstacles
 	checkError(err, "setting rebound arg 3", __LINE__);
 	err = clSetKernelArg(ocl.rebound, 4, sizeof(cl_int), &params.ny);
 	checkError(err, "setting rebound arg 4", __LINE__);
+	err = clSetKernelArg(ocl.rebound, 5, sizeof(cl_int), &total_obstacles);
+	checkError(err, "setting rebound arg 5", __LINE__);
 
 	// Enqueue kernel
 	size_t global[1] = { total_obstacles };
@@ -568,18 +562,18 @@ int initialise(const char* paramfile, const char* obstaclefile,
 		total_obstacles++;
 	}
   }
-  obstacles_vector = malloc(sizeof(t_obstacle)*total_obstacles);
+  obstacles_vector = malloc(sizeof(short)*total_obstacles*2);
 
   /* and close the file */
   fclose(fp);
   int i = 0;
-  for (int ii = 0; ii < params->ny; ii++)
+  for (short ii = 0; ii < params->ny; ii++)
   {
-	  for (int jj = 0; jj < params->nx; jj++)
+	  for (short jj = 0; jj < params->nx; jj++)
 	  {
 		  if ((*obstacles_ptr)[ii * params->nx + jj]) {
-			  obstacles_vector[i].ii = ii;
-			  obstacles_vector[i].jj = jj;
+			  obstacles_vector[i] = ii;
+			  obstacles_vector[i + total_obstacles] = jj;
 			  i++;
 		  }
 	  }
@@ -662,13 +656,13 @@ int initialise(const char* paramfile, const char* obstaclefile,
     sizeof(float) * params->nx * params->ny*NSPEEDS, NULL, &err);
   checkError(err, "creating tmp_cells buffer", __LINE__);
   ocl->obstacles = clCreateBuffer(
-    ocl->context, CL_MEM_READ_WRITE,
+    ocl->context, CL_MEM_READ_ONLY,
     sizeof(cl_int) * params->nx * params->ny, NULL, &err);
   checkError(err, "creating obstacles buffer", __LINE__);
 
   ocl->obstacles_vector = clCreateBuffer(
-	  ocl->context, CL_MEM_READ_WRITE,
-	  sizeof(t_obstacle) *total_obstacles, NULL, &err);
+	  ocl->context, CL_MEM_READ_ONLY,
+	  sizeof(short) *total_obstacles*2, NULL, &err);
   checkError(err, "creating obstacles vector buffer", __LINE__);
 
 
