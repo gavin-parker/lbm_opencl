@@ -10,7 +10,7 @@
 
 
 kernel void accelerate_flow(global float* cells,
-                            global int* obstacles,
+                            global short* obstacles,
                             int nx, int ny,
                             float density, float accel)
 {
@@ -41,13 +41,10 @@ kernel void accelerate_flow(global float* cells,
   }
 }
 
-kernel void collision(global float* cells, global float* tmp_cells, global int* obstacles, int nx, int ny, float omega,  global float* tot_vel)
+kernel void collision(global float* cells, global float* tmp_cells, global short* obstacles, int nx, int ny, float omega,  global float* tot_vel)
 {
 	local float scratch[16*16];
-	const float c_sq = 1.0 / 3.0; /* square of speed of sound */
-	const float w0 = 4.0 / 9.0;  /* weighting factor */
-	const float w1 = 1.0 / 9.0;  /* weighting factor */
-	const float w2 = 1.0 / 36.0; /* weighting factor */
+
 	int jj = get_global_id(0);
 	int ii = get_global_id(1);
 
@@ -59,14 +56,14 @@ kernel void collision(global float* cells, global float* tmp_cells, global int* 
 	float tot_u = 0;
 	int local_index = ii_local*nx_local + jj_local;
 	int local_size = nx_local * ny_local;
-	int y_n = ((ii + 1) % ny);
+	int y_n = ((ii + 1) & (ny-1));
 	int y_s = ((ii == 0) ? (ii + ny - 1) : (ii - 1));
 	//wait until flow acceleration has been computed
 
 	/*Propagate step*/
 	/* determine indices of axis-direction neighbours
 	** respecting periodic boundary conditions (wrap around) */
-	int x_e = (jj + 1) % nx;
+	int x_e = ((jj + 1) & (nx-1));
 	int x_w = (jj == 0) ? (jj + nx - 1) : (jj - 1);
 	/* propagate densities to neighbouring cells, following
 	** appropriate directions of travel and writing into
@@ -181,7 +178,7 @@ kernel void rebound(global float* cells,global float* tmp_cells, global short* o
 	short ii = obstacles_vector[i];
 	short jj = obstacles_vector[tot_obstacles+i];
 
-	int y_n = ((ii + 1) % ny);
+	int y_n = ((ii + 1) & (ny-1));
 	int y_s = ((ii == 0) ? (ii + ny - 1) : (ii - 1));
 
 	int x_e = (jj + 1) % nx;
