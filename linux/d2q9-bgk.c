@@ -123,10 +123,10 @@ int initialise(const char* paramfile, const char* obstaclefile,
 ** timestep calls, in order, the functions:
 ** accelerate_flow(), propagate(), rebound() & collision()
 */
-int timestep(const t_param params, float* cells, float* tmp_cells, short* obstacles, t_ocl ocl, int flip);
+int timestep(const t_param params, float* cells, float* tmp_cells, short* obstacles, t_ocl ocl, int flip, int tt);
 int accelerate_flow(const t_param params, float* cells, short* obstacles, t_ocl ocl, int flip);
 int rebound(const t_param params, float* cells, float* tmp_cells, short* obstacles, t_ocl ocl, int flip);
-int collision(const t_param params, short* obstacles, t_ocl ocl, int flip);
+int collision(const t_param params, short* obstacles, t_ocl ocl, int flip, int tt);
 int write_values(const t_param params, float* cells, short* obstacles, float* av_vels);
 
 /* finalise, including freeing up allocated memory */
@@ -138,7 +138,7 @@ int finalise(const t_param* params, float** cells_ptr, float** tmp_cells_ptr,
 float total_density(const t_param params, float* cells);
 
 /* compute average velocity */
-float av_velocity(const t_param params, float* cells, short* obstacles, t_ocl ocl);
+int av_velocity(const t_param params, float* cells, short* obstacles, t_ocl ocl, float* av_vels);
 
 /* calculate Reynolds number */
 float calc_reynolds(const t_param params, float* cells, short* obstacles, t_ocl ocl, float vel);
@@ -220,9 +220,10 @@ int main(int argc, char* argv[])
 	int flip = 0;
 	for (int tt = 0; tt < params.maxIters; tt++)
 	{
-		timestep(params, cells, tmp_cells, obstacles, ocl, flip);
-		av_vels[tt] = av_velocity(params, cells, obstacles, ocl);
+		timestep(params, cells, tmp_cells, obstacles, ocl, flip, tt);
+		//av_vels[tt] = av_velocity(params, cells, obstacles, ocl);
 		flip = !flip;
+		//err = clFinish(ocl.queue);
 #ifdef DEBUG
 		printf("==timestep: %d==\n", tt);
 		printf("av velocity: %.12E\n", av_vels[tt]);
@@ -239,6 +240,8 @@ int main(int argc, char* argv[])
 			ocl.queue, ocl.tmp_cells, CL_TRUE, 0,
 			sizeof(float) * params.nx * params.ny*NSPEEDS, cells, 0, NULL, NULL);
 	}
+
+	av_velocity(params, cells, obstacles, ocl, av_vels);
 
   checkError(err, "reading tmp_cells data", __LINE__);
    
@@ -273,18 +276,15 @@ int main(int argc, char* argv[])
   return EXIT_SUCCESS;
 }
 
-int timestep(const t_param params, float* cells, float *tmp_cells, short* obstacles, t_ocl ocl, int flip)
+int timestep(const t_param params, float* cells, float *tmp_cells, short* obstacles, t_ocl ocl, int flip, int tt)
 {
   cl_int err;
 
   // Write cells to device
   accelerate_flow(params, cells, obstacles, ocl, flip);
-  collision(params, obstacles, ocl, flip);
+  collision(params, obstacles, ocl, flip, tt);
   rebound(params, cells, tmp_cells, obstacles, ocl, flip);
-
-
   err = clFinish(ocl.queue);
-  checkError(err, "waiting for kernel", __LINE__);
 
   return EXIT_SUCCESS;
 }
@@ -292,7 +292,7 @@ int timestep(const t_param params, float* cells, float *tmp_cells, short* obstac
 int accelerate_flow(const t_param params, float* cells, short* obstacles, t_ocl ocl, int flip)
 {
   cl_int err;
-
+  //err = clFinish(ocl.queue);
   // Set kernel arguments
   if (!flip) {
 	  err = clSetKernelArg(ocl.accelerate_flow, 0, sizeof(cl_mem), &ocl.cells);
@@ -339,7 +339,7 @@ int rebound(const t_param params, float* cells, float* tmp_cells, short* obstacl
   return EXIT_SUCCESS;
 }
 
-int collision(const t_param params, short* obstacles, t_ocl ocl, int flip )
+int collision(const t_param params, short* obstacles, t_ocl ocl, int flip , int tt)
 {
 	cl_int err;
 
@@ -348,12 +348,14 @@ int collision(const t_param params, short* obstacles, t_ocl ocl, int flip )
 	checkError(err, "setting collision arg 0", __LINE__);
 	err = clSetKernelArg(ocl.collision, !flip, sizeof(cl_mem), &ocl.tmp_cells);
 	checkError(err, "setting collision arg 1", __LINE__);
-
+	err = clSetKernelArg(ocl.collision, 7, sizeof(cl_int), &tt);
+	checkError(err, "setting collision arg 7", __LINE__);
 	// Enqueue kernel
 	size_t global[2] = { params.nx, params.ny };
 	size_t local[2] = { 16 * 16 / 2, 2 };
 	err = clEnqueueNDRangeKernel(ocl.queue, ocl.collision,
 		2, NULL, global, local, 0, NULL, NULL);
+
 	checkError(err, "enqueueing collision kernel", __LINE__);
 
 	// Wait for kernel to finish
@@ -396,22 +398,26 @@ void set_kernel_args(const t_param params,t_ocl ocl) {
 
 }
 
-float av_velocity(const t_param params, float* cells, short* obstacles, t_ocl ocl)
+int av_velocity(const t_param params, float* cells, short* obstacles, t_ocl ocl, float* av_vels)
 {
 	cl_int err;
 
 	err = clEnqueueReadBuffer(
 		ocl.queue, ocl.total_vel, CL_TRUE, 0,
-		sizeof(cl_float)*(ocl.workGroups), total_vel, 0, NULL, NULL);
+		sizeof(cl_float)*(ocl.workGroups)*params.maxIters, total_vel, 0, NULL, NULL);
 	checkError(err, "reading total_vel data", __LINE__);
 
-	double tot = 0;
-#pragma simd
-	for (int i = 0; i < ocl.workGroups; i++) {
-		tot += total_vel[i];
-	}
 
-  return tot / (double)total_cells;
+	for (int i = 0; i < params.maxIters; i++) {
+		double tot = 0;
+#pragma simd
+		for (int i = 0; i < ocl.workGroups; i++) {
+			tot += total_vel[i];
+		}
+		av_vels[i] = tot / (double)total_cells;
+	}
+	return EXIT_SUCCESS;
+
 }
 
 int initialise(const char* paramfile, const char* obstaclefile,
@@ -680,10 +686,10 @@ int initialise(const char* paramfile, const char* obstaclefile,
 
   ocl->total_vel = clCreateBuffer(
 	  ocl->context, CL_MEM_READ_WRITE,
-	  sizeof(cl_float)*(ocl->workGroups), NULL, &err);
+	  sizeof(cl_float)*(ocl->workGroups)*params->maxIters, NULL, &err);
   checkError(err, "creating vel buffer", __LINE__);
 
-  total_vel = (float*)malloc(sizeof(float)*(ocl->workGroups));
+  total_vel = (float*)malloc(sizeof(float)*(ocl->workGroups)*params->maxIters);
 
   return EXIT_SUCCESS;
 }

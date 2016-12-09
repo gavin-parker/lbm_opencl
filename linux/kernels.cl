@@ -41,7 +41,7 @@ kernel void accelerate_flow(global float* cells,
   }
 }
 
-kernel void collision(global float* cells, global float* tmp_cells, global short* obstacles, int nx, int ny, float omega,  global float* tot_vel)
+kernel void collision(global float* cells, global float* tmp_cells, global short* obstacles, int nx, int ny, float omega,  global float* tot_vel, int tt)
 {
 	local float scratch[16*16];
 
@@ -165,7 +165,7 @@ kernel void collision(global float* cells, global float* tmp_cells, global short
 	barrier(CLK_LOCAL_MEM_FENCE);
 	}
 	if(local_index == 0){
-		tot_vel[get_group_id(0) + get_group_id(1)*get_num_groups(0)] = scratch[0];
+		tot_vel[(get_group_id(0) + get_group_id(1)*get_num_groups(0))*tt] = scratch[0];
 	}
 
 		
