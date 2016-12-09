@@ -283,7 +283,7 @@ int timestep(const t_param params, float* cells, float *tmp_cells, short* obstac
   // Write cells to device
   accelerate_flow(params, cells, obstacles, ocl, flip);
   collision(params, obstacles, ocl, flip, tt);
-  rebound(params, cells, tmp_cells, obstacles, ocl, flip);
+  //rebound(params, cells, tmp_cells, obstacles, ocl, flip);
   err = clFinish(ocl.queue);
 
   return EXIT_SUCCESS;
