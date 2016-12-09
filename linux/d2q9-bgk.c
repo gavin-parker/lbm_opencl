@@ -241,7 +241,7 @@ int main(int argc, char* argv[])
 			sizeof(float) * params.nx * params.ny*NSPEEDS, cells, 0, NULL, NULL);
 	}
 
-	av_velocity(params, cells, obstacles, ocl, av_vels);
+  av_velocity(params, cells, obstacles, ocl, av_vels);
 
   checkError(err, "reading tmp_cells data", __LINE__);
    
@@ -407,12 +407,12 @@ int av_velocity(const t_param params, float* cells, short* obstacles, t_ocl ocl,
 		sizeof(cl_float)*(ocl.workGroups)*params.maxIters, total_vel, 0, NULL, NULL);
 	checkError(err, "reading total_vel data", __LINE__);
 
-
+	int groups = ocl.workGroups;
 	for (int i = 0; i < params.maxIters; i++) {
 		double tot = 0;
 #pragma simd
-		for (int i = 0; i < ocl.workGroups; i++) {
-			tot += total_vel[i];
+		for (int j = 0; j < groups; j++) {
+			tot += total_vel[i*groups + j];
 		}
 		av_vels[i] = tot / (double)total_cells;
 	}
