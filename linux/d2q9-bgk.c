@@ -71,6 +71,13 @@
 #define AVVELSFILE      "av_vels.dat"
 #define OCLFILE         "kernels.cl"
 #define INDEX(ii,jj,nx,ny,speed) (((nx)*(ny)*(speed))+((ii)*(nx)+(jj)))
+
+#ifndef BLOCK_I
+	#define BLOCK_I 16
+#endif
+#ifndef BLOCK_J
+	#define BLOCK_J 16
+#endif
 /* struct to hold the parameter values */
 typedef struct
 {
@@ -352,7 +359,7 @@ int collision(const t_param params, short* obstacles, t_ocl ocl, int flip , int 
 	checkError(err, "setting collision arg 7", __LINE__);
 	// Enqueue kernel
 	size_t global[2] = { params.nx, params.ny };
-	size_t local[2] = { 16 * 16 / 2, 2 };
+	size_t local[2] = { BLOCK_I, BLOCK_J };
 	err = clEnqueueNDRangeKernel(ocl.queue, ocl.collision,
 		2, NULL, global, local, 0, NULL, NULL);
 
@@ -678,7 +685,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
   checkError(err, "creating obstacles vector buffer", __LINE__);
 
 
-  ocl->workGroupSize = 16*16;
+  ocl->workGroupSize = BLOCK_I*BLOCK_J;
   ocl->workGroups = (params->nx*params->ny) / ocl->workGroupSize;
 
   printf("workgroup size: %d \n", (int)ocl->workGroupSize);

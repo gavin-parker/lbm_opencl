@@ -7,7 +7,12 @@
 #define C_SQ_2		(1.0 / ((C_SQ * C_SQ) + (C_SQ * C_SQ)))
 #define C_SQ_R_2	(3.0 / 2.0)
 #define INDEX(ii,jj,nx,ny,speed) (((nx)*(ny)*(speed))+ ((ii)*(nx)+(jj)))
-
+#ifndef BLOCK_I
+	#define BLOCK_I 16
+#endif
+#ifndef BLOCK_J
+	#define BLOCK_J 16
+#endif
 
 kernel void accelerate_flow(global float* cells,
                             global short* obstacles,
@@ -43,7 +48,7 @@ kernel void accelerate_flow(global float* cells,
 
 kernel void collision(global float* cells, global float* tmp_cells, global short* obstacles, int nx, int ny, float omega,  global float* tot_vel, int tt)
 {
-	local float scratch[16*16];
+	local float scratch[BLOCK_I*BLOCK_J];
 
 	int jj = get_global_id(0);
 	int ii = get_global_id(1);
