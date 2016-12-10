@@ -112,7 +112,6 @@ typedef struct
   int workGroups;
   size_t workGroupSize;
 
-  cl_mem obstacles_vector;
 } t_ocl;
 
 
@@ -160,7 +159,6 @@ cl_device_id selectOpenCLDevice();
 int total_cells;
 float* total_vel = NULL;
 int total_obstacles = 0;
-short* obstacles_vector;
 /*
 ** main program:
 ** initialise, timestep loop, finalise
@@ -198,10 +196,6 @@ int main(int argc, char* argv[])
 	/* initialise our data structures and load values from file */
 	initialise(paramfile, obstaclefile, &params, &cells, &tmp_cells, &obstacles, &av_vels, &ocl);
 	set_kernel_args(params, ocl);
-	err = clEnqueueWriteBuffer(
-		ocl.queue, ocl.obstacles_vector, CL_FALSE, 0,
-		sizeof(short) * total_obstacles*2, obstacles_vector, 0, NULL, NULL);
-	checkError(err, "writing obstacles vector data", __LINE__);
 
 	/* iterate for maxIters timesteps */
 #ifdef __unix__
@@ -323,27 +317,6 @@ int accelerate_flow(const t_param params, float* cells, short* obstacles, t_ocl 
 }
 
 
-int rebound(const t_param params, float* cells, float* tmp_cells, short* obstacles, t_ocl ocl, int flip)
-{
-	cl_int err;
-	// Set kernel arguments
-	err = clSetKernelArg(ocl.rebound, flip, sizeof(cl_mem), &ocl.cells);
-	checkError(err, "setting rebound arg 0", __LINE__);
-	err = clSetKernelArg(ocl.rebound, !flip, sizeof(cl_mem), &ocl.tmp_cells);
-	checkError(err, "setting rebound arg 1", __LINE__);
-
-	// Enqueue kernel
-	size_t global[1] = { total_obstacles };
-	err = clEnqueueNDRangeKernel(ocl.queue, ocl.rebound,
-		1, NULL, global, NULL, 0, NULL, NULL);
-	checkError(err, "enqueueing rebound kernel", __LINE__);
-
-	// Wait for kernel to finish
-	//err = clFinish(ocl.queue);
-	//checkError(err, "waiting for rebound kernel", __LINE__);
-
-  return EXIT_SUCCESS;
-}
 
 int collision(const t_param params, short* obstacles, t_ocl ocl, int flip , int tt)
 {
@@ -383,14 +356,6 @@ void set_kernel_args(const t_param params,t_ocl ocl) {
 	checkError(err, "setting collision arg 5", __LINE__);
 	err = clSetKernelArg(ocl.collision, 6, sizeof(cl_mem), &ocl.total_vel);
 	checkError(err, "setting collision arg 6", __LINE__);
-	err = clSetKernelArg(ocl.rebound, 2, sizeof(cl_mem), &ocl.obstacles_vector);
-	checkError(err, "setting rebound arg 2", __LINE__);
-	err = clSetKernelArg(ocl.rebound, 3, sizeof(cl_int), &params.nx);
-	checkError(err, "setting rebound arg 3", __LINE__);
-	err = clSetKernelArg(ocl.rebound, 4, sizeof(cl_int), &params.ny);
-	checkError(err, "setting rebound arg 4", __LINE__);
-	err = clSetKernelArg(ocl.rebound, 5, sizeof(cl_int), &total_obstacles);
-	checkError(err, "setting rebound arg 5", __LINE__);
 	err = clSetKernelArg(ocl.accelerate_flow, 1, sizeof(cl_mem), &ocl.obstacles);
 	checkError(err, "setting accelerate_flow arg 1", __LINE__);
 	err = clSetKernelArg(ocl.accelerate_flow, 2, sizeof(cl_int), &params.nx);
@@ -416,7 +381,7 @@ int av_velocity(const t_param params, float* cells, short* obstacles, t_ocl ocl,
 	int groups = ocl.workGroups;
 	for (int i = 0; i < params.maxIters; i++) {
 		double tot = 0;
-#pragma simd
+	#pragma simd
 		for (int j = 0; j < groups; j++) {
 			tot += total_vel[i*groups + j];
 		}
@@ -580,23 +545,8 @@ int initialise(const char* paramfile, const char* obstaclefile,
 		total_obstacles++;
 	}
   }
-  obstacles_vector = malloc(sizeof(short)*total_obstacles*2);
-
   /* and close the file */
   fclose(fp);
-  int i = 0;
-  for (short ii = 0; ii < params->ny; ii++)
-  {
-	  for (short jj = 0; jj < params->nx; jj++)
-	  {
-		  if ((*obstacles_ptr)[ii * params->nx + jj]) {
-			  obstacles_vector[i] = ii;
-			  obstacles_vector[i + total_obstacles] = jj;
-			  i++;
-		  }
-	  }
-  }
-
 
   /*
   ** allocate space to hold a record of the avarage velocities computed
@@ -678,12 +628,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
 	  sizeof(short) * params->nx * params->ny, NULL, &err);
   checkError(err, "creating tmp_cells buffer", __LINE__);
 
-  ocl->obstacles_vector = clCreateBuffer(
-	  ocl->context, CL_MEM_READ_ONLY,
-	  sizeof(short) *total_obstacles*2, NULL, &err);
-  checkError(err, "creating obstacles vector buffer", __LINE__);
-
-
+ 
   ocl->workGroupSize = BLOCK_I*BLOCK_J;
   ocl->workGroups = (params->nx*params->ny) / ocl->workGroupSize;
 
