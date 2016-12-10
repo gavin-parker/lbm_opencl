@@ -331,7 +331,7 @@ int collision(const t_param params, short* obstacles, t_ocl ocl, int flip , int 
 	checkError(err, "setting collision arg 7", __LINE__);
 	// Enqueue kernel
 	size_t global[2] = { params.nx, params.ny };
-	size_t local[2] = { BLOCK_I, BLOCK_J };
+	size_t local[2] = { 64, 2 };
 	err = clEnqueueNDRangeKernel(ocl.queue, ocl.collision,
 		2, NULL, global, local, 0, NULL, NULL);
 
@@ -629,7 +629,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
   checkError(err, "creating tmp_cells buffer", __LINE__);
 
  
-  ocl->workGroupSize = BLOCK_I*BLOCK_J;
+  ocl->workGroupSize = 64*2;
   ocl->workGroups = (params->nx*params->ny) / ocl->workGroupSize;
 
   printf("workgroup size: %d \n", (int)ocl->workGroupSize);

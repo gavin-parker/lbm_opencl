@@ -48,7 +48,7 @@ kernel void accelerate_flow(global float* cells,
 
 kernel void collision(global float* cells, global float* tmp_cells, global short* obstacles, int nx, int ny, float omega,  global float* tot_vel, int tt)
 {
-	local float scratch[BLOCK_I*BLOCK_J];
+	local float scratch[64*2];
 
 	int jj = get_global_id(0);
 	int ii = get_global_id(1);
