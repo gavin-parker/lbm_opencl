@@ -188,27 +188,3 @@ kernel void collision(global float* cells, global float* tmp_cells, global short
 
 		
 }
-
-kernel void rebound(global float* cells,global float* tmp_cells, global short* obstacles_vector, int nx, int ny, int tot_obstacles)
-{
-	int i = get_global_id(0);
-	/* if the cell contains an obstacle */
-	short ii = obstacles_vector[i];
-	short jj = obstacles_vector[tot_obstacles+i];
-
-	int y_n = ((ii + 1) & (ny-1));
-	int y_s = ((ii == 0) ? (ii + ny - 1) : (ii - 1));
-
-	int x_e = (jj + 1) % nx;
-	int x_w = (jj == 0) ? (jj + nx - 1) : (jj - 1);
-	tmp_cells[INDEX(ii,jj,nx,ny,	1)] = cells[INDEX(ii,x_e,nx,ny,	3)];
-	tmp_cells[INDEX(ii,jj,nx,ny,	2)] = cells[INDEX(y_n,jj,nx,ny,	4)];
-	tmp_cells[INDEX(ii,jj,nx,ny,	3)] = cells[INDEX(ii,x_w,nx,ny,	1)];
-	tmp_cells[INDEX(ii,jj,nx,ny,	4)] = cells[INDEX(y_s,jj,nx,ny,	2)];
-	tmp_cells[INDEX(ii,jj,nx,ny,	5)] = cells[INDEX(y_n,x_e,nx,ny,	7)] ;
-	tmp_cells[INDEX(ii,jj,nx,ny,	6)] = cells[INDEX(y_n,x_w,nx,ny,	8)];
-	tmp_cells[INDEX(ii,jj,nx,ny,	7)] = cells[INDEX(y_s,x_w,nx,ny,	5)];
-	tmp_cells[INDEX(ii,jj,nx,ny,	8)] = cells[INDEX(y_s,x_e,nx,ny,	6)];
- 
- 
-}

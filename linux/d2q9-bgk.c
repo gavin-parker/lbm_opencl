@@ -159,6 +159,7 @@ cl_device_id selectOpenCLDevice();
 int total_cells;
 float* total_vel = NULL;
 int total_obstacles = 0;
+char* options = " -cl-mad-enable -cl-unsafe-math-optimizations -cl-finite-math-only";
 /*
 ** main program:
 ** initialise, timestep loop, finalise
@@ -590,7 +591,7 @@ int initialise(const char* paramfile, const char* obstaclefile,
   checkError(err, "creating program", __LINE__);
 
   // Build OpenCL program
-  err = clBuildProgram(ocl->program, 1, &ocl->device, "", NULL, NULL);
+  err = clBuildProgram(ocl->program, 1, &ocl->device, options, NULL, NULL);
   if (err == CL_BUILD_PROGRAM_FAILURE)
   {
     size_t sz;
@@ -611,8 +612,6 @@ int initialise(const char* paramfile, const char* obstaclefile,
   checkError(err, "creating accelerate_flow kernel", __LINE__);
   ocl->collision = clCreateKernel(ocl->program, "collision", &err);
   checkError(err, "creating collision kernel", __LINE__);
-  ocl->rebound = clCreateKernel(ocl->program, "rebound", &err);
-  checkError(err, "creating rebound kernel", __LINE__);
 
   // Allocate OpenCL buffers
   ocl->cells = clCreateBuffer(
@@ -667,7 +666,6 @@ int finalise(const t_param* params, float** cells_ptr, float** tmp_cells_ptr,
   clReleaseMemObject(ocl.tmp_cells);
   clReleaseMemObject(ocl.obstacles);
   clReleaseKernel(ocl.collision);
-  clReleaseKernel(ocl.rebound);
 
   clReleaseProgram(ocl.program);
   clReleaseCommandQueue(ocl.queue);
