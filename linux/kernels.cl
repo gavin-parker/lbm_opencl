@@ -14,6 +14,8 @@
 	#define BLOCK_J 16
 #endif
 
+
+
 kernel void accelerate_flow(global float* cells,
                             global short* obstacles,
                             int nx, int ny,

@@ -159,7 +159,7 @@ cl_device_id selectOpenCLDevice();
 int total_cells;
 float* total_vel = NULL;
 int total_obstacles = 0;
-char* options = " -cl-mad-enable -cl-unsafe-math-optimizations -cl-finite-math-only";
+char* options = " -cl-mad-enable -cl-unsafe-math-optimizations -cl-finite-math-only -cl-fast-relaxed-math";
 /*
 ** main program:
 ** initialise, timestep loop, finalise
