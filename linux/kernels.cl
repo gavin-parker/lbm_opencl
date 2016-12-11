@@ -147,35 +147,37 @@ kernel void collision(global float* cells, global float* tmp_cells, global short
 	u[8] = u_x - u_y + u2[8];
 
 	u[0] = w_local * (u[0]) - speeds[0];
-		tmp_cells[INDEX(ii,jj,nx,ny,	0)] = (speeds[0] + omega*u[0])*obstacle;
+		u[0] = (speeds[0] + omega*u[0])*obstacle;
 	float w1_local = W1 * local_density;
 		#pragma unroll
 	for (int i = 1; i < 5; i++) {
 		float a = w1_local * (u[i]) - speeds[i];
-		tmp_cells[INDEX(ii,jj,nx,ny,	i)] = speeds[i] + omega*a;
+		u[i] = speeds[i] + omega*a;
 	}
 	float w2_local = W2 * local_density;
 	#pragma unroll
 	for (int i = 5; i < 9; i++) {
 		float a = w2_local * (u[i]) - speeds[i];
-		tmp_cells[INDEX(ii,jj,nx,ny,	i)] = speeds[i] + omega*a;
+		u[i] = speeds[i] + omega*a;
 	}
 	if(!obstacle){
-	tmp_cells[INDEX(ii,jj,nx,ny,	1)] = cells[INDEX(ii,x_e,nx,ny,	3)];
-	tmp_cells[INDEX(ii,jj,nx,ny,	2)] = cells[INDEX(y_n,jj,nx,ny,	4)];
-	tmp_cells[INDEX(ii,jj,nx,ny,	3)] = cells[INDEX(ii,x_w,nx,ny,	1)];
-	tmp_cells[INDEX(ii,jj,nx,ny,	4)] = cells[INDEX(y_s,jj,nx,ny,	2)];
-	tmp_cells[INDEX(ii,jj,nx,ny,	5)] = cells[INDEX(y_n,x_e,nx,ny,	7)] ;
-	tmp_cells[INDEX(ii,jj,nx,ny,	6)] = cells[INDEX(y_n,x_w,nx,ny,	8)];
-	tmp_cells[INDEX(ii,jj,nx,ny,	7)] = cells[INDEX(y_s,x_w,nx,ny,	5)];
-	tmp_cells[INDEX(ii,jj,nx,ny,	8)] = cells[INDEX(y_s,x_e,nx,ny,	6)];
+		u[1] = speeds[3];
+		u[2] = speeds[4];
+		u[3] = speeds[1];
+		u[4] = speeds[2];
+		u[5] = speeds[7];
+		u[6] = speeds[8];
+		u[7] = speeds[5];
+		u[8] = speeds[6];
 	}
-
-
 
        
 	scratch[local_index] = tot_u;
 	barrier(CLK_LOCAL_MEM_FENCE);
+	#pragma unroll
+	for(int i=0; i < 9 ; i++){ 
+		tmp_cells[INDEX(ii,jj,nx,ny,i)] = u[i];
+	}
 	for(int offset = local_size/2; offset > 0; offset = offset / 2){
 		if(local_index < offset){
 			float other = scratch[local_index + offset];
