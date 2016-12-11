@@ -104,8 +104,8 @@ kernel void collision(global float* cells, global float* tmp_cells, global short
 	u_x = u_x + a + c;
 	u_y = u_y + d - a;
 
-	u_x /= local_density;
-	u_y /= local_density;
+	u_x = native_divide(u_x,local_density);
+	u_y = native_divide(u_y, local_density);
 	float w_local = W0 * local_density;
 	/* velocity squared */
 
@@ -132,9 +132,9 @@ kernel void collision(global float* cells, global float* tmp_cells, global short
 	u2[7] = u2[5];
 	u2[8] = u2[6];
 	u2[2] -= u_sq_recip;
-	tot_u = sqrt(u_sq)*obstacle;
-	u_x /= C_SQ;
-	u_y /= C_SQ;
+	tot_u = native_sqrt(u_sq)*obstacle;
+	u_x  = native_divide(u_x, (float)C_SQ);
+	u_y = native_divide(u_y, (float)C_SQ);
 	float u[NSPEEDS];
 	u[0] = -u_sq_recip;
 	u[1] = u_x + u2[1];
